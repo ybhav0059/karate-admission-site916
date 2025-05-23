@@ -1,20 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Karate Kid - Admission</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css" />
     <script>
-        function toggleAdmissionForm() {
+        const GITHUB_TOKEN = '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'; // Your token (DO NOT expose publicly)
+        const REPO_OWNER = 'ybhav0059';
+        const REPO_NAME = 'karate-admission-site916';
+        const FILE_PATH = 'data.json'; // The "database" file in your repo
+
+        async function toggleAdmissionForm() {
             const formContainer = document.getElementById("admissionForm");
             formContainer.style.display = formContainer.style.display === "none" ? "block" : "none";
         }
 
-        function handleSubmit(event) {
-            event.preventDefault(); // Prevent form from refreshing the page
-            const successMessage = document.getElementById("successMessage");
-            successMessage.style.display = "block"; // Show the success message
+        async function getFileSha() {
+            // Get the current file info including sha needed for update
+            const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+            const response = await fetch(url, {
+                headers: {
+                    Authorization: `token ${GITHUB_TOKEN}`,
+                    Accept: 'application/vnd.github.v3+json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to get file info: ' + response.statusText);
+            }
+            return await response.json(); // includes .sha and .content (base64)
+        }
+
+        async function updateFile(newContent, sha) {
+            // Commit the new content to GitHub (update data.json)
+            const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+            const body = {
+                message: `Update data.json - Add new admission`,
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(newContent, null, 2)))), // encode to base64
+                sha: sha,
+            };
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    Authorization: `token ${GITHUB_TOKEN}`,
+                    Accept: 'application/vnd.github.v3+json',
+                },
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                throw new Error('Failed to update file: ' + response.statusText);
+            }
+            return await response.json();
+        }
+
+        async function handleSubmit(event) {
+            event.preventDefault();
+
+            // Get form values
+            const form = event.target;
+            const newEntry = {
+                name: form.name.value,
+                address: form.address.value,
+                place: form.place.value,
+                phone: form.phone.value,
+                fees: form.fees.value,
+                date: new Date().toISOString()
+            };
+
+            try {
+                // Step 1: Get current data.json content and sha
+                const fileData = await getFileSha();
+                const existingContent = JSON.parse(atob(fileData.content));
+
+                // Step 2: Add new entry
+                existingContent.push(newEntry);
+
+                // Step 3: Update the file on GitHub
+                await updateFile(existingContent, fileData.sha);
+
+                // Show success message
+                document.getElementById("successMessage").style.display = "block";
+                form.reset();
+
+            } catch (error) {
+                alert('Error submitting data: ' + error.message);
+                console.error(error);
+            }
         }
     </script>
 </head>
@@ -35,7 +106,7 @@
             <form onsubmit="handleSubmit(event)">
                 <div class="form-group">
                     <label for="name">Student Name:</label>
-                    <input type="text" id="name" name="name" placeholder="Enter student's full name" required>
+                    <input type="text" id="name" name="name" placeholder="Enter student's full name" required />
                 </div>
                 <div class="form-group">
                     <label for="address">Address:</label>
@@ -43,21 +114,24 @@
                 </div>
                 <div class="form-group">
                     <label for="place">Place:</label>
-                    <input type="text" id="place" name="place" placeholder="Enter place" required>
+                    <input type="text" id="place" name="place" placeholder="Enter place" required />
                 </div>
                 <div class="form-group">
                     <label for="phone">Phone Number:</label>
-                    <input type="tel" id="phone" name="phone" placeholder="Enter phone number" required>
+                    <input type="tel" id="phone" name="phone" placeholder="Enter phone number" required />
                 </div>
                 <div class="form-group">
                     <label for="fees">Entry Fees:</label>
-                    <input type="number" id="fees" name="fees" placeholder="Enter entry fees" required>
+                    <input type="number" id="fees" name="fees" placeholder="Enter entry fees" required />
                 </div>
                 <div class="form-group">
                     <button type="submit">Submit Admission</button>
                 </div>
             </form>
-            <div id="successMessage" style="display: none; text-align: center; margin-top: 20px; color: green;">
+            <div
+                id="successMessage"
+                style="display: none; text-align: center; margin-top: 20px; color: green;"
+            >
                 <h3>✔️ Successfully Submitted!</h3>
             </div>
         </div>
